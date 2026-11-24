@@ -1,10 +1,11 @@
 // 폰 앱의 수집·저장·검색 로직. PC의 law.py 와 같은 규칙 (한쪽 고치면 다른 쪽도).
 // db = sqlite-wasm oo1.DB, 법제처 API는 폰 브라우저에서 직접 호출 (CORS 허용됨).
 
+// 순서 = 받는 순서·화면 순서. 작고 중요한 것 먼저, 아주 큰 판례(17만)·자치법규(16만)는 맨 뒤
 export const LABEL = {
-  law: "법령", admrul: "행정규칙", ordin: "자치법규", prec: "판례", detc: "헌재결정례", expc: "법령해석례",
-  decc: "행정심판례", nfaCgmExpc: "소방청 해석", moisCgmExpc: "행정안전부 해석", moelCgmExpc: "고용노동부 해석",
-  molitCgmExpc: "국토교통부 해석",
+  law: "법령", admrul: "행정규칙", expc: "법령해석례", nfaCgmExpc: "소방청 해석", moisCgmExpc: "행정안전부 해석",
+  moelCgmExpc: "고용노동부 해석", molitCgmExpc: "국토교통부 해석", detc: "헌재결정례", decc: "행정심판례",
+  prec: "판례", ordin: "자치법규",
 };
 const TITLE = ["법령명한글", "행정규칙명", "자치법규명", "사건명", "안건명", "조약명"];
 const DATE = ["공포일자", "발령일자", "선고일자", "종국일자", "회신일자", "해석일자", "의결일자", "시행일자"];
