@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f3ea">
+<title>소방 법령 DB</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%233d3730'/%3E%3Cpolygon points='32,7 38,19 46,27 50,37 49,46 45,52 39,56 32,58 25,56 19,52 15,46 14,37 18,29 22,23 25,32 28,21' fill='%23f5ecd9'/%3E%3Cpolygon points='32,33 36,39 39,45 38,50 35,53 32,54 29,53 26,50 25,46 27,41 29,45 31,39' fill='%233d3730'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<script>  // 저장된 테마를 그리기 전에 적용 (깜빡임 방지)
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<style>
+@font-face { font-family: "NanumSquareRound"; font-weight: 400; font-display: swap; src: url(fonts/NanumSquareRoundR.woff2) format("woff2"); }
+@font-face { font-family: "NanumSquareRound"; font-weight: 700; font-display: swap; src: url(fonts/NanumSquareRoundB.woff2) format("woff2"); }
+:root {  /* 아이보리 */
+  --bg:#f7f3ea; --card:#fffcf5; --fg:#2f2b25; --muted:#8b8376; --line:#e8e0d0;
+  --accent:#8a6a3f; --accent-fg:#fffcf5; --soft:#efe6d4; --mark:#f3dfa8;
+}
+:root[data-theme="dark"] {
+  --bg:#1c1b19; --card:#262522; --fg:#ece6da; --muted:#a39c8f; --line:#3a3833;
+  --accent:#d8b77e; --accent-fg:#1c1b19; --soft:#312f2b; --mark:#5c4a24;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#1c1b19; --card:#262522; --fg:#ece6da; --muted:#a39c8f; --line:#3a3833;
+    --accent:#d8b77e; --accent-fg:#1c1b19; --soft:#312f2b; --mark:#5c4a24;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin:0; background:var(--bg); color:var(--fg); }
+body, input, button { font-family: "NanumSquareRound", system-ui, sans-serif; }
+body { font-size:16px; line-height:1.65; }
+main { max-width:760px; margin:0 auto; padding:0 16px 48px; }
+.muted { color:var(--muted); font-size:13px; }
+
+/* 상단 바: 로고 · 검색 · 테마 · 설정 */
+.bar { position:sticky; top:0; z-index:2; background:var(--bg); display:flex; align-items:center; gap:8px; padding:10px 0; }
+.bar svg.logo { width:34px; height:34px; flex:none; border-radius:10px; }
+.bar form { flex:1; min-width:0; position:relative; }
+#q { width:100%; font-size:16px; padding:10px 14px 10px 38px; border:1px solid var(--line); border-radius:999px;
+     background:var(--card); color:var(--fg); outline:none; }
+#q:focus { border-color:var(--accent); }
+.bar form::before { content:""; position:absolute; left:14px; top:50%; width:13px; height:13px; margin-top:-8px;
+  border:2px solid var(--muted); border-radius:50%; }
+.bar form::after { content:""; position:absolute; left:26px; top:50%; width:7px; height:2px; margin-top:5px;
+  background:var(--muted); transform:rotate(45deg); border-radius:2px; }
+.icon { flex:none; width:38px; height:38px; border:0; border-radius:50%; background:var(--soft); color:var(--fg);
+  font-size:18px; display:grid; place-items:center; cursor:pointer; padding:0; }
+
+.card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px 16px; margin:10px 0; }
+.card h2 { font-size:15px; margin:0 0 8px; }
+.card h2:not(:first-child) { margin-top:16px; }
+button.main { font-weight:700; border:0; border-radius:14px; padding:12px; width:100%;
+  background:var(--accent); color:var(--accent-fg); margin-top:10px; font-size:15px; cursor:pointer; }
+.panel input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg); color:var(--fg); font-size:15px; }
+.panel label { display:flex; gap:10px; align-items:center; padding:6px 0; }
+.panel label small { color:var(--muted); margin-left:auto; }
+a { color:var(--accent); }
+
+/* 진행 현황 */
+.prow { padding:7px 0; border-top:1px solid var(--line); }
+.prow:first-of-type { border-top:0; }
+.prow .top { display:flex; justify-content:space-between; gap:8px; font-size:14px; }
+.prow .top span:last-child { color:var(--muted); text-align:right; }
+.bar-bg { height:6px; border-radius:999px; background:var(--soft); margin-top:5px; overflow:hidden; }
+.bar-bg i { display:block; height:100%; background:var(--accent); border-radius:999px; transition:width .3s; }
+.phead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+#pnow { margin-top:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 홈 */
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { background:var(--soft); border-radius:999px; padding:3px 10px; font-size:13px; }
+.chg { font-size:14px; padding:5px 0; border-top:1px solid var(--line); }
+.chg:first-of-type { border-top:0; }
+
+/* 결과 */
+#meta { margin:12px 4px 4px; }
+.res details { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin:8px 0; }
+.res summary { cursor:pointer; list-style:none; }
+.res summary::-webkit-details-marker { display:none; }
+.res b { font-weight:700; }
+.tag { display:inline-block; font-size:12px; background:var(--soft); color:var(--accent); border-radius:999px; padding:1px 8px; margin-right:6px; }
+.snip { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+.body { white-space:pre-wrap; font-size:15px; margin-top:10px; padding:12px; background:var(--bg); border-radius:12px; overflow-wrap:anywhere; }
+mark { background:var(--mark); color:inherit; border-radius:4px; }
+#more { height:1px; }
+</style>
+</head>
+<body>
+<main>
+<div class="bar">
+  <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#3d3730"/><polygon points="32,7 38,19 46,27 50,37 49,46 45,52 39,56 32,58 25,56 19,52 15,46 14,37 18,29 22,23 25,32 28,21" fill="#f5ecd9"/><polygon points="32,33 36,39 39,45 38,50 35,53 32,54 29,53 26,50 25,46 27,41 29,45 31,39" fill="#3d3730"/></svg>
+  <form id="sf" role="search"><input id="q" type="search" enterkeyhint="search" placeholder="법령·해석 검색" aria-label="검색"></form>
+  <button class="icon" id="theme" aria-label="화면 밝기 바꾸기"></button>
+  <button class="icon" id="gear" aria-label="설정">⚙</button>
+</div>
+
+<div class="card" id="prog" hidden>
+  <div class="phead"><b id="ptitle">업데이트 중</b><a href="#" id="pstop">중지</a></div>
+  <div class="muted" id="psum"></div>
+  <div id="prows" style="margin-top:8px"></div>
+  <div class="muted" id="pnow"></div>
+</div>
+
+<div class="card panel" id="panel" hidden>
+  <h2>API 키</h2>
+  <input id="oc" type="text" autocomplete="off" placeholder="법제처 OPEN API 인증키 (OC)">
+  <div class="muted">이 폰에만 저장됩니다.</div>
+
+  <h2>DB 파일 등록 (처음 한 번)</h2>
+  <div class="muted">PC 화면의 '폰용 DB 파일 받기'로 만든 파일을 고르세요. 지금 폰의 DB는 이 파일로 바뀝니다.</div>
+  <input id="file" type="file" accept=".db,application/octet-stream" style="margin-top:8px; max-width:100%">
+
+  <h2>받을 종류 <span class="muted">— 켤 때마다 새로 바뀐 것만 받아옵니다</span></h2>
+  <div id="targets"></div>
+  <button class="main" id="go">지금 업데이트</button>
+  <div class="muted" id="space" style="margin-top:8px"></div>
+</div>
+
+<div id="home"></div>
+<div id="meta" class="muted"></div>
+<div id="results" class="res"></div>
+<div id="more"></div>
+</main>
+
+<script type="module">
+import { LABEL } from "./engine.js";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ymd = d => d && d.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}` : (d || "");
+const num = n => (n || 0).toLocaleString();
+const store = { get: k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+                set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+
+// 테마: 아이보리 ↔ 다크 (처음엔 폰 설정 따라감)
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+function paintTheme() {
+  $("theme").textContent = isDark() ? "☀" : "☾";
+  document.querySelector('meta[name="theme-color"]').content = isDark() ? "#1c1b19" : "#f7f3ea";
+}
+$("theme").onclick = () => { const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t; store.set("theme", t); paintTheme(); };
+paintTheme();
+
+// DB 일꾼과 주고받기: call("search", "소방") → Promise
+const worker = new Worker("worker.js", { type: "module" });
+let seq = 0;
+const pending = {};
+worker.onmessage = ({ data: m }) => {
+  if (m.id) { pending[m.id][m.error ? 1 : 0](m.error ?? m.result); delete pending[m.id]; }
+  else if (m.event === "start") progStart(m.targets);
+  else if (m.event === "progress") progUpdate(m.p);
+  else if (m.event === "log") $("pnow").textContent = m.text;
+  else if (m.event === "done" && !paused) progDone();
+  else if (m.event === "paused") {  // 다른 창(탭)에서 이 DB를 열어 이 창은 멈춤
+    paused = true; lock?.release();
+    document.querySelector("main").innerHTML = `<div class="card" style="margin-top:24px"><h2>다른 창에서 열려 있어요</h2>
+      <div class="muted">DB는 한 번에 한 창에서만 쓸 수 있어서 이 창은 멈췄습니다. 이 창을 다시 쓰려면 <a href="">새로고침</a>하세요.</div></div>`;
+  }
+};
+let paused = false;
+const call = (op, ...args) => new Promise((ok, no) => { pending[++seq] = [ok, no]; worker.postMessage({ id: seq, op, args }); });
+
+// ── 진행 현황 ──
+let prog = {}, lock = null;
+function progStart(targets) {
+  prog = Object.fromEntries(targets.map(t => [t, { state: "wait", seen: 0, total: 0, neu: 0 }]));
+  $("prog").hidden = false; $("ptitle").textContent = "업데이트 중"; $("pstop").hidden = false;
+  progRender();
+}
+function progUpdate(p) {
+  const o = prog[p.t] || (prog[p.t] = {});
+  if (p.state === "run" && !o.t0) { o.t0 = Date.now(); o.s0 = p.seen; }
+  Object.assign(o, p);
+  if (p.title) $("pnow").textContent = `지금: [${LABEL[p.t] || p.t}] ${p.title}`;
+  progRender();
+}
+function stateText(o) {
+  if (o.state === "wait") return "대기";
+  if (o.state === "done") return `완료 · 새로 ${num(o.neu)}건`;
+  if (o.state === "uptodate") return `최신 상태 · 새로 ${num(o.neu)}건`;
+  if (o.state === "stop") return `중지됨 · 새로 ${num(o.neu)}건`;
+  if (o.state === "skip") return /미신청/.test(o.msg) ? "건너뜀 — 법제처 사이트에서 신청 필요" : `건너뜀 — ${o.msg}`;
+  let s = o.total ? `${num(o.seen)} / ${num(o.total)} 확인 · 새로 ${num(o.neu)}건` : "목록 확인 중";
+  const rate = (o.seen - o.s0) / ((Date.now() - o.t0) / 1000);  // 초당 확인 건수
+  if (o.total && o.seen - o.s0 >= 20 && rate > 0) {
+    const min = Math.ceil((o.total - o.seen) / rate / 60);
+    s += min > 90 ? ` · 약 ${Math.round(min / 60)}시간 남음` : ` · 약 ${min}분 남음`;
+  }
+  return s;
+}
+function progRender() {
+  const list = Object.entries(prog);
+  const fin = list.filter(([, o]) => !["wait", "run"].includes(o.state)).length;
+  const neu = list.reduce((a, [, o]) => a + (o.neu || 0), 0);
+  $("psum").textContent = `${fin} / ${list.length} 종류 끝 · 새로 받은 자료 ${num(neu)}건`;
+  $("prows").innerHTML = list.map(([t, o]) => {
+    const pct = ["done", "uptodate"].includes(o.state) ? 100 : o.total ? Math.min(100, o.seen / o.total * 100) : 0;
+    return `<div class="prow"><div class="top"><span>${LABEL[t] || t}</span><span>${esc(stateText(o))}</span></div>
+      <div class="bar-bg"><i style="width:${pct.toFixed(1)}%"></i></div></div>`;
+  }).join("");
+}
+function progDone() {
+  const t = new Date();
+  $("ptitle").textContent = `업데이트 끝 (${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")})`;
+  $("pstop").hidden = true; $("pnow").textContent = "";
+  lock?.release(); lock = null;
+  refresh();
+}
+$("pstop").onclick = e => { e.preventDefault(); call("update"); };  // 진행 중에 다시 부르면 중지
+
+// ── 설정 ──
+let st = { counts: [], changes: [], targets: null };
+const DEFAULT = ["law", "admrul", "expc", "nfaCgmExpc"];
+$("gear").onclick = () => { $("panel").hidden = !$("panel").hidden; };
+const openPanel = () => { $("panel").hidden = false; };
+const checked = () => [...$("targets").querySelectorAll("input:checked")].map(i => i.value);
+
+async function refresh() {
+  st = await call("stats");
+  const counts = Object.fromEntries(st.counts);
+  const n = st.counts.reduce((a, c) => a + c[1], 0);
+  const chosen = st.targets || (n ? st.counts.map(c => c[0]) : DEFAULT);
+  $("targets").innerHTML = Object.entries(LABEL).map(([t, name]) =>
+    `<label><input type="checkbox" value="${t}"${chosen.includes(t) ? " checked" : ""}>${name}<small>${num(counts[t])}건</small></label>`).join("");
+  $("go").textContent = st.running ? "업데이트 중… (누르면 중지)" : "지금 업데이트";
+  $("home").innerHTML = !n ? `<div class="card"><h2>DB가 비어 있습니다</h2>
+      <div class="muted">⚙에서 API 키를 넣고, PC에서 만든 DB 파일을 등록하거나 '지금 업데이트'로 폰에서 직접 받으세요.</div></div>`
+    : `<div class="card"><h2>저장된 자료 ${num(n)}건</h2><div class="chips">` +
+      st.counts.map(([t, c]) => `<span class="chip">${LABEL[t] || t} ${num(c)}</span>`).join("") + `</div>` +
+      (st.changes.length ? `<h2>최근 개정</h2>` + st.changes.slice(0, 10).map(c =>
+        `<div class="chg">${esc(c[2])} <span class="muted">${ymd(c[4])} → ${ymd(c[5])} · ${esc(c[3])}</span></div>`).join("") : "") +
+      `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 여러 단어는 모두 들어간 것만 찾습니다.</div></div>`;
+  const est = await navigator.storage?.estimate?.();
+  if (est) $("space").textContent = `폰 저장 공간 사용: ${(est.usage / 1e6).toFixed(0)}MB`;
+  return n;
+}
+
+$("oc").value = store.get("oc");
+$("oc").onchange = () => store.set("oc", $("oc").value.trim());
+$("targets").onchange = () => call("setTargets", checked());
+
+async function update() {
+  const oc = store.get("oc");
+  if (!oc) { openPanel(); $("oc").focus(); return alert("먼저 API 키를 넣어 주세요."); }
+  navigator.storage?.persist?.();  // 공간 부족해도 브라우저가 이 DB를 지우지 않게 요청
+  try { lock = await navigator.wakeLock?.request("screen"); } catch {}  // 받는 동안 화면 안 꺼지게
+  call("update", checked(), oc).catch(e => alert(e));
+  setTimeout(refresh, 300);
+}
+$("go").onclick = update;
+
+$("file").onchange = async () => {
+  const f = $("file").files[0];
+  if (!f) return;
+  if (!confirm(`'${f.name}' (${(f.size / 1e6).toFixed(0)}MB) 로 폰의 DB를 바꿀까요?`)) return ($("file").value = "");
+  navigator.storage?.persist?.();
+  $("prog").hidden = false; $("ptitle").textContent = "DB 파일 등록 중"; $("pstop").hidden = true; $("psum").textContent = ""; $("prows").innerHTML = "";
+  try { await call("importFile", f); $("ptitle").textContent = "DB 파일 등록 끝"; $("pnow").textContent = ""; }
+  catch (e) { $("ptitle").textContent = "등록 실패"; $("pnow").textContent = String(e); }
+  $("file").value = "";
+  await refresh();
+};
+
+// ── 검색: 검색(Enter)을 눌렀을 때만. 결과는 30건씩, 아래로 내리면 이어서 ──
+let words = [], rows = [], shown = 0, latest = 0;
+$("sf").onsubmit = async e => {
+  e.preventDefault();
+  $("q").blur();  // 폰 키보드 내리기
+  const q = $("q").value.trim(), my = ++latest;
+  words = q.split(/\s+/).filter(Boolean);
+  if (!q) return clearSearch();
+  $("home").hidden = true; $("results").innerHTML = ""; $("meta").textContent = "찾는 중…";
+  rows = await call("search", q);
+  if (my !== latest) return;
+  shown = 0;
+  $("meta").innerHTML = (rows.length >= 300 ? "300건 이상 (앞 300건)" : `${rows.length}건`) +
+    (rows.length ? ` · <a href="#" id="csv">CSV 내려받기</a>` : " — 다른 단어로 찾아보세요");
+  more();
+};
+function clearSearch() {
+  rows = []; shown = 0; $("results").innerHTML = ""; $("meta").textContent = ""; $("home").hidden = false;
+}
+$("q").addEventListener("input", () => { if (!$("q").value) clearSearch(); });  // ✕로 지우면 처음 화면
+function more() {
+  const next = rows.slice(shown, shown + 30);
+  shown += next.length;
+  $("results").insertAdjacentHTML("beforeend", next.map(([id, type, title, date, kind, org, snip]) => `<details data-id="${id}">
+    <summary><span class="tag">${esc(type)}</span><b>${hl(title)}</b>
+    <div class="muted">${ymd(date)} ${esc(kind)} ${esc(org)}</div><div class="snip">…${hl(snip)}…</div></summary>
+    <div class="body">불러오는 중…</div></details>`).join(""));
+}
+new IntersectionObserver(es => { if (es[0].isIntersecting && shown < rows.length) more(); }, { rootMargin: "400px" }).observe($("more"));
+function hl(s) {
+  s = esc(s);
+  if (!words.length) return s;
+  const re = new RegExp(words.map(w => esc(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  return s.replace(re, m => `<mark>${m}</mark>`);
+}
+$("results").addEventListener("toggle", async e => {
+  const d = e.target;
+  if (!d.open || d.dataset.loaded) return;
+  d.dataset.loaded = 1;
+  d.querySelector(".body").innerHTML = hl(await call("doc", +d.dataset.id));
+}, true);
+$("meta").onclick = async e => {
+  if (e.target.id !== "csv") return;
+  e.preventDefault();
+  const q = $("q").value.trim();
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([await call("csv", q)], { type: "text/csv" })), download: `${q}.csv` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+// 시작: DB가 있으면 바로 최신만 업데이트, 비었거나 키가 없으면 설정 열기
+const n = await refresh().catch(e => { $("home").innerHTML = `<div class="card">DB를 열지 못했습니다: ${esc(e)}</div>`; return -1; });
+if (n === 0 || !store.get("oc")) openPanel();
+else if (n > 0 && navigator.onLine) update();
+</script>
+</body>
+</html>

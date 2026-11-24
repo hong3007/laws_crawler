@@ -1,0 +1,1 @@
+나눔스퀘어라운드 (Naver, SIL Open Font License 1.1) — npm @kfonts/nanum-square-round 0.2.0

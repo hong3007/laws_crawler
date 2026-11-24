@@ -1,0 +1,1 @@
+@sqlite.org/sqlite-wasm 3.54.1-build1 (npm). SQLite는 public domain.
