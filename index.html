@@ -56,8 +56,9 @@ main { max-width:760px; margin:0 auto; padding:0 16px 48px; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px 16px; margin:10px 0; }
 .card h2 { font-size:15px; margin:0 0 8px; }
 .card h2:not(:first-child) { margin-top:16px; }
-button.main { font-weight:700; border:0; border-radius:14px; padding:12px; width:100%;
-  background:var(--accent); color:var(--accent-fg); margin-top:10px; font-size:15px; cursor:pointer; }
+button.pill { flex:none; font-weight:700; border:0; border-radius:999px; padding:8px 16px;
+  background:var(--accent); color:var(--accent-fg); font-size:14px; cursor:pointer; }
+button.pill:disabled { opacity:.5; }
 .panel input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg); color:var(--fg); font-size:15px; }
 .panel label { display:flex; gap:10px; align-items:center; padding:6px 0; }
 .panel label small { color:var(--muted); margin-left:auto; }
@@ -70,7 +71,7 @@ a { color:var(--accent); }
 .prow .top span:last-child { color:var(--muted); text-align:right; }
 .bar-bg { height:6px; border-radius:999px; background:var(--soft); margin-top:5px; overflow:hidden; }
 .bar-bg i { display:block; height:100%; background:var(--accent); border-radius:999px; transition:width .3s; }
-.phead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.phead { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 #pnow { margin-top:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* 홈 */
@@ -101,9 +102,13 @@ mark { background:var(--mark); color:inherit; border-radius:4px; }
   <button class="icon" id="gear" aria-label="설정" aria-expanded="false" aria-controls="panel">⚙</button>
 </div>
 
-<div class="card" id="prog" hidden>
-  <div class="phead"><b id="ptitle">업데이트 중</b><a href="#" id="pstop" role="button">중지</a></div>
-  <div class="muted" id="psum"></div>
+<div class="card" id="inst" hidden>  <!-- 크롬이 '설치 가능'이라고 알려 줄 때만 보임 -->
+  <div class="phead"><span>홈 화면에 앱으로 설치할 수 있어요</span><button class="pill" id="instBtn">설치</button></div>
+</div>
+
+<div class="card" id="prog">  <!-- 업데이트: 버튼 하나가 지금 업데이트 → 중지 → 다시 시작 -->
+  <div class="phead"><div><b id="ptitle">업데이트</b><div class="muted" id="psum"></div></div>
+    <button class="pill" id="ubtn">지금 업데이트</button></div>
   <div id="prows" style="margin-top:8px"></div>
   <div class="muted" id="pnow"></div>
 </div>
@@ -119,8 +124,8 @@ mark { background:var(--mark); color:inherit; border-radius:4px; }
 
   <h2>받을 종류 <span class="muted">— 켤 때마다 새로 바뀐 것만 받아옵니다</span></h2>
   <div id="targets"></div>
-  <button class="main" id="go">지금 업데이트</button>
   <div class="muted" id="space" style="margin-top:8px"></div>
+  <div class="muted" id="insthint" style="margin-top:4px">앱으로 설치: 크롬 오른쪽 위 ⋮ → '앱 설치' (또는 '홈 화면에 추가')</div>
 </div>
 
 <div id="home"></div>
@@ -171,18 +176,35 @@ worker.onmessage = ({ data: m }) => {
 let paused = false;
 const call = (op, ...args) => new Promise((ok, no) => { pending[++seq] = [ok, no]; worker.postMessage({ id: seq, op, args }); });
 
-// ── 진행 현황 ──
-let prog = {}, lock = null;
+// ── 업데이트 카드: 버튼 하나 (지금 업데이트 → 중지 → 다시 시작) ──
+// 중지했으면 기억해 두고, 새로고침·다시 켜도 저절로 시작하지 않음 (다시 시작을 눌러야 이어서 받음)
+// 자동 업데이트(켤 때, 12시간에 한 번)는 조용히: 한 줄만 표시, 종류별 막대는 직접 눌렀을 때만
+let prog = {}, lock = null, running = false, quiet = false;
+const hm = ms => { const d = new Date(ms); return `${d.getMonth() + 1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+const lastRun = () => { try { return JSON.parse(store.get("last")) || {}; } catch { return {}; } };
+function paintCard() {
+  const last = lastRun();
+  $("ubtn").textContent = running ? "중지" : last.stopped ? "다시 시작" : "지금 업데이트";
+  if (running) return;
+  $("ptitle").textContent = !last.at ? "업데이트" : last.stopped ? `중지됨 (${hm(last.at)})` : `마지막 업데이트 ${hm(last.at)}`;
+  if (!Object.keys(prog).length)
+    $("psum").textContent = last.stopped ? "'다시 시작'을 누르면 받던 곳부터 이어서 받습니다." : !last.at ? "버튼을 누르면 새로 바뀐 법령을 받아옵니다." : "";
+}
+$("ubtn").onclick = () => {
+  if (running) { $("ubtn").disabled = true; call("update").catch(() => {}); }  // 진행 중에 다시 부르면 중지
+  else update();
+};
 function progStart(targets) {
+  running = true; $("ubtn").disabled = false;
   prog = Object.fromEntries(targets.map(t => [t, { state: "wait", seen: 0, total: 0, neu: 0 }]));
-  $("prog").hidden = false; $("ptitle").textContent = "업데이트 중"; $("pstop").hidden = false;
-  progRender();
+  $("ptitle").textContent = quiet ? "새 자료 확인 중" : "업데이트 중";
+  paintCard(); progRender();
 }
 function progUpdate(p) {
   const o = prog[p.t] || (prog[p.t] = {});
   if (p.state === "run" && !o.t0) { o.t0 = Date.now(); o.s0 = p.seen; }
   Object.assign(o, p);
-  if (p.title) $("pnow").textContent = `지금: [${LABEL[p.t] || p.t}] ${p.title}`;
+  if (p.title && !quiet) $("pnow").textContent = `지금: [${LABEL[p.t] || p.t}] ${p.title}`;
   progRender();
 }
 function stateText(o) {
@@ -206,6 +228,8 @@ function progRender() {
   const fin = list.filter(([, o]) => !["wait", "run"].includes(o.state)).length;
   const neu = list.reduce((a, [, o]) => a + (o.neu || 0), 0);
   $("psum").textContent = `${fin} / ${list.length} 종류 끝 · 새로 받은 자료 ${num(neu)}건`;
+  $("prows").hidden = quiet;
+  if (quiet) return;
   $("prows").innerHTML = list.map(([t, o]) => {
     const pct = ["done", "uptodate"].includes(o.state) ? 100 : o.total && o.full ? Math.min(100, o.seen / o.total * 100) : 0;
     return `<div class="prow"><div class="top"><span>${esc(LABEL[t] || t)}</span><span>${esc(stateText(o))}</span></div>
@@ -213,13 +237,17 @@ function progRender() {
   }).join("");
 }
 function progDone() {
-  const t = new Date(), stopped = Object.values(prog).some(o => o.state === "stop");
-  $("ptitle").textContent = `업데이트 ${stopped ? "중지됨" : "끝"} (${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")})`;
-  $("pstop").hidden = true; $("pnow").textContent = "";
+  running = false; $("ubtn").disabled = false;
+  const stopped = Object.values(prog).some(o => o.state === "stop");
+  store.set("last", JSON.stringify({ at: Date.now(), stopped }));
+  $("pnow").textContent = "";
   lock?.release(); lock = null;
+  const wasQuiet = quiet, neu = Object.values(prog).reduce((a, o) => a + (o.neu || 0), 0);
+  if (quiet) { quiet = false; prog = {}; $("prows").innerHTML = ""; }  // 조용한 자동 업데이트는 끝나면 한 줄 요약만
+  paintCard();
+  if (wasQuiet && !stopped) $("psum").textContent = neu ? `새로 ${num(neu)}건 받았습니다.` : "최신 상태입니다.";
   refresh().catch(() => {});
 }
-$("pstop").onclick = e => { e.preventDefault(); call("update"); };  // 진행 중에 다시 부르면 중지
 
 // ── 설정 ──
 let st = { counts: [], changes: [], targets: null };
@@ -236,7 +264,6 @@ async function refresh() {
   const chosen = st.targets || (n ? st.counts.map(c => c[0]) : DEFAULT);
   $("targets").innerHTML = Object.entries(LABEL).map(([t, name]) =>
     `<label><input type="checkbox" value="${t}"${chosen.includes(t) ? " checked" : ""}>${name}<small>${num(counts[t])}건</small></label>`).join("");
-  $("go").textContent = st.running ? "업데이트 중… (누르면 중지)" : "지금 업데이트";
   $("home").innerHTML = !n ? `<div class="card"><h2>DB가 비어 있습니다</h2>
       <div class="muted">⚙에서 API 키를 넣고, PC에서 만든 DB 파일을 등록하거나 '지금 업데이트'로 폰에서 직접 받으세요.</div></div>`
     : `<div class="card"><h2>저장된 자료 ${num(n)}건</h2><div class="chips">` +
@@ -253,27 +280,38 @@ $("oc").value = store.get("oc");
 $("oc").onchange = () => store.set("oc", $("oc").value.trim());
 $("targets").onchange = () => call("setTargets", checked()).catch(() => {});
 
-async function update() {
+async function update(auto = false) {
+  quiet = auto;
   const oc = store.get("oc");
   if (!oc) { openPanel(); $("oc").focus(); return alert("먼저 API 키를 넣어 주세요."); }
   navigator.storage?.persist?.();  // 공간 부족해도 브라우저가 이 DB를 지우지 않게 요청
-  try { lock ??= await navigator.wakeLock?.request("screen"); } catch {}  // 받는 동안 화면 안 꺼지게
-  call("update", checked(), oc).catch(e => { lock?.release(); lock = null; alert(e); });
-  setTimeout(() => refresh().catch(() => {}), 300);
+  if (!checked().length) { openPanel(); return alert("받을 종류를 하나 이상 체크해 주세요."); }
+  $("ubtn").disabled = true;  // 시작 신호(start)가 올 때까지 두 번 눌림 방지
+  if (!auto) try { lock ??= await navigator.wakeLock?.request("screen"); } catch {}  // 직접 받을 땐 화면 안 꺼지게
+  call("update", checked(), oc).catch(e => { $("ubtn").disabled = false; lock?.release(); lock = null; alert(e); });
 }
-$("go").onclick = update;
+
+// 앱 설치: 크롬이 '설치 가능'이라고 알려 주면 위에 안내 카드 (이미 설치했으면 안 뜸)
+let installEvt = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("inst").hidden = false; });
+$("instBtn").onclick = async () => { $("inst").hidden = true; installEvt?.prompt(); installEvt = null; };
+addEventListener("appinstalled", () => { $("inst").hidden = true; });
+if (matchMedia("(display-mode: standalone)").matches) $("insthint").hidden = true;  // 앱으로 열었으면 설치 안내 숨김
 
 $("file").onchange = async () => {
   const f = $("file").files[0];
   if (!f) return;
-  if (st.running) { $("file").value = ""; return alert("업데이트 중에는 등록할 수 없습니다. 끝난 뒤에 해 주세요."); }
+  if (running) { $("file").value = ""; return alert("업데이트 중에는 등록할 수 없습니다. 중지하거나 끝난 뒤에 해 주세요."); }
   if (!confirm(`'${f.name}' (${(f.size / 1e6).toFixed(0)}MB) 로 폰의 DB를 바꿀까요? 지금 폰에 있는 자료는 이 파일 내용으로 바뀝니다.`)) return ($("file").value = "");
   navigator.storage?.persist?.();
-  $("prog").hidden = false; $("ptitle").textContent = "DB 파일 등록 중"; $("pstop").hidden = true; $("psum").textContent = ""; $("prows").innerHTML = "";
-  try { await call("importFile", f); $("ptitle").textContent = "DB 파일 등록 끝"; $("pnow").textContent = ""; }
+  $("ubtn").disabled = true; prog = {}; $("prows").innerHTML = "";
+  $("ptitle").textContent = "DB 파일 등록 중"; $("psum").textContent = "";
+  try { await call("importFile", f); $("ptitle").textContent = "DB 파일 등록 끝"; $("pnow").textContent = ""; store.set("last", ""); }
   catch (e) { $("ptitle").textContent = "등록 실패"; $("pnow").textContent = String(e); }
-  $("file").value = "";
+  $("ubtn").disabled = false; $("file").value = "";
+  $("psum").textContent = "새 DB로 바꿨습니다. '지금 업데이트'를 누르면 그 뒤로 바뀐 것만 받아옵니다.";
   await refresh().catch(() => {});
+  $("ubtn").textContent = "지금 업데이트";
 };
 
 // ── 검색: 검색(Enter)을 눌렀을 때만. 결과는 30건씩, 아래로 내리면 이어서 ──
@@ -332,10 +370,11 @@ $("meta").onclick = async e => {
   } catch (err) { alert("CSV를 만들지 못했습니다: " + err); }
 };
 
-// 시작: DB가 있으면 바로 최신만 업데이트, 비었거나 키가 없으면 설정 열기
+// 시작: DB가 있으면 바로 최신만 업데이트 (단, 지난번에 중지했으면 기다림). 비었거나 키가 없으면 설정 열기
+paintCard();
 const n = await refresh().catch(e => { $("home").innerHTML = `<div class="card">DB를 열지 못했습니다: ${esc(e)}</div>`; return -1; });
 if (n === 0 || !store.get("oc")) openPanel();
-else if (n > 0 && navigator.onLine) update();
+else if (n > 0 && navigator.onLine && !lastRun().stopped && Date.now() - (lastRun().at || 0) > 12 * 3600e3) update(true);
 </script>
 </body>
 </html>
