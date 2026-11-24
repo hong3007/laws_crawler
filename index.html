@@ -185,9 +185,14 @@ const lastRun = () => { try { return JSON.parse(store.get("last")) || {}; } catc
 // 체크한 종류를 모두 끝까지 받았고 지난번에 끊기지 않았나 (아니면 '처음 받기' 중 → 자동으로는 시작 안 함)
 const allDone = () => checked().every(t => st.meta?.["done:" + t] && !st.meta?.["partial:" + t]);
 function paintCard() {
-  const last = lastRun(), first = st.meta && !allDone();
-  $("ubtn").textContent = running ? "중지" : first ? "이어서 받기" : last.stopped ? "다시 시작" : "지금 업데이트";
+  const last = lastRun(), first = st.meta && !allDone(), empty = st.meta && !st.counts.length;
+  $("ubtn").textContent = running ? "중지" : empty ? "받기 시작" : first ? "이어서 받기" : last.stopped ? "다시 시작" : "지금 업데이트";
   if (running) return;
+  if (empty && !Object.keys(prog).length) {  // 빈 DB: '처음 받기 안 끝남'과 구분
+    $("ptitle").textContent = "아직 받은 자료가 없어요";
+    $("psum").textContent = "⚙에서 PC로 만든 DB 파일을 등록하거나, 버튼을 눌러 폰에서 직접 받으세요.";
+    return;
+  }
   $("ptitle").textContent = first ? "처음 받기가 아직 안 끝났어요"
     : !last.at ? "업데이트" : last.stopped ? `중지됨 (${last.at ? hm(last.at) : ""})` : `마지막 업데이트 ${hm(last.at)}`;
   if (!Object.keys(prog).length)
