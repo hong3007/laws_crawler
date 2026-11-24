@@ -5,6 +5,8 @@ import * as E from "./engine.js";
 const FILE = "/law.db";
 let pool, db, stop = false, running = false, paused = false;
 const open = () => { db = new pool.OpfsSAHPoolDb(FILE); db.exec(E.SCHEMA); };
+// 예전 저장 방식(색인에 본문까지, 압축 없음)으로 받은 DB인가 → 화면이 '비우고 처음부터' 안내 (변환 기능은 안 만듦)
+const oldFormat = () => !!db.selectValue("select 1 from sqlite_master where name='fts' and sql not like '%detail%'");
 
 // DB 파일은 한 번에 한 창(탭)만 열 수 있음 → 나중에 연 창이 넘겨받고, 먼저 열린 창은 멈춤
 const bc = new BroadcastChannel("law-db");
@@ -41,16 +43,22 @@ const ops = {
       targets: JSON.parse(db.selectValue("select value from meta where key='targets'") || "null"),
       // done:<종류> = 끝까지 다 받은 적 있음, partial:<종류> = 지난번에 중간에 끊김 → 화면이 자동 업데이트 여부를 정함
       meta: Object.fromEntries(db.selectArrays("select key, value from meta where key like 'done:%' or key like 'partial:%'")),
+      oldFormat: oldFormat(),
       running,
     };
   },
   setTargets(list) { db.exec("insert or replace into meta values('targets', ?)", { bind: [JSON.stringify(list)] }); },
-  search(q) {
+  async search(q) {
     const w = q.split(/\s+/).filter(Boolean)[0] || "";
-    return E.search(db, q, 300).map(r => [r[0], E.LABEL[r[1]] || r[1], r[2], r[3], r[4], r[5], E.snippet(r[6], w)]);
+    return (await E.search(db, q, 300)).map(r => [r[0], E.LABEL[r[1]] || r[1], r[2], r[3], r[4], r[5], E.snippet(r[6], w)]);
   },
-  doc(id) { return db.selectValue("select body from fts where rowid=?", [id]); },
-  csv(q) { return E.csv(E.search(db, q)); },
+  async doc(id, oc) {  // ③ 요약만 저장한 종류(판례·자치법규)는 열 때 전문을 온라인으로, 안 되면 저장된 요약
+    const [target, link] = db.selectArray("select target, link from docs where rowid=?", [id]) || [];
+    if (E.SUMMARY[target] && oc) try { return await E.bodyOf(link, oc); } catch {}
+    const body = await E.bodyText(db, id);
+    return E.SUMMARY[target] ? body + "\n\n(요약만 저장됨 — 인터넷이 연결되면 전문을 보여 줍니다)" : body;
+  },
+  async csv(q) { return E.csv(await E.search(db, q)); },
   async importFile(file) {  // PC에서 만든 DB 파일을 8MB씩 나눠 저장 (큰 파일도 메모리 안 터지게)
     if (running) throw new Error("업데이트 중에는 등록할 수 없습니다.");
     // 라이브러리는 기존 DB를 먼저 비운 뒤 파일을 검사함 → 잘못된 파일이면 폰 DB가 날아가므로 미리 확인
@@ -82,6 +90,7 @@ const ops = {
   async update(targets, oc) {  // 같은 버튼 다시 누르면 중지
     if (running) { stop = true; return; }
     if (!targets) return;  // 이미 끝난 뒤 '중지'가 눌린 경우
+    if (oldFormat()) throw new Error("예전 저장 방식의 DB입니다. ⚙ 맨 아래 '저장된 DB 비우고 처음부터'를 먼저 해 주세요.");
     running = true; stop = false;
     let last = 0;
     const report = p => {  // 진행 중 표시는 0.2초에 한 번만 (화면 버벅임 방지), 상태 바뀔 땐 바로

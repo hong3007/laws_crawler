@@ -279,7 +279,10 @@ async function refresh() {
   const chosen = st.targets || (n ? st.counts.map(c => c[0]) : DEFAULT);
   $("targets").innerHTML = Object.entries(LABEL).map(([t, name]) =>
     `<label><input type="checkbox" value="${t}"${chosen.includes(t) ? " checked" : ""}>${name}<small>${num(counts[t])}건</small></label>`).join("");
-  $("home").innerHTML = !n ? `<div class="card"><h2>DB가 비어 있습니다</h2>
+  $("home").innerHTML = st.oldFormat ? `<div class="card"><h2>저장 방식이 바뀌었어요</h2>
+      <div class="muted">용량을 약 1/6로 줄이는 새 방식입니다. 지금 있는 자료 ${num(n)}건은 예전 방식이라 검색·업데이트가 되지 않아요.
+      ⚙ 맨 아래 <b>'저장된 DB 비우고 처음부터'</b>를 누른 뒤 다시 받아 주세요.</div></div>`
+    : !n ? `<div class="card"><h2>DB가 비어 있습니다</h2>
       <div class="muted">⚙에서 API 키를 넣고, PC에서 만든 DB 파일을 등록하거나 위 '받기 시작'으로 여기서 직접 받으세요.</div></div>`
     : `<div class="card"><h2>저장된 자료 ${num(n)}건</h2><div class="chips">` +
       st.counts.map(([t, c]) => `<span class="chip">${esc(LABEL[t] || t)} ${num(c)}</span>`).join("") + `</div>` +
@@ -302,6 +305,7 @@ async function update(auto = false) {
   if (!oc) { openPanel(); $("oc").focus(); return alert("먼저 API 키를 넣어 주세요."); }
   navigator.storage?.persist?.();  // 공간 부족해도 브라우저가 이 DB를 지우지 않게 요청
   if (!checked().length) { openPanel(); return alert("받을 종류를 하나 이상 체크해 주세요."); }
+  if (st.oldFormat) { if (!auto) { openPanel(); alert("저장 방식이 바뀌었어요. ⚙ 맨 아래 '저장된 DB 비우고 처음부터'를 먼저 해 주세요."); } return; }
   $("ubtn").disabled = true;  // 시작 신호(start)가 올 때까지 두 번 눌림 방지
   if (!auto) try { lock ??= await navigator.wakeLock?.request("screen"); } catch {}  // 직접 받을 땐 화면 안 꺼지게
   call("update", checked(), oc).catch(e => { $("ubtn").disabled = false; lock?.release(); lock = null; alert(e); });
@@ -381,7 +385,7 @@ $("results").addEventListener("toggle", async e => {
   const d = e.target;
   if (!d.open || d.dataset.loaded) return;
   d.dataset.loaded = 1;
-  try { d.querySelector(".body").innerHTML = hl(await call("doc", +d.dataset.id)); }
+  try { d.querySelector(".body").innerHTML = hl(await call("doc", +d.dataset.id, store.get("oc"))); }
   catch (err) { delete d.dataset.loaded; d.querySelector(".body").textContent = "본문을 불러오지 못했습니다: " + err; }
 }, true);
 $("meta").onclick = async e => {
