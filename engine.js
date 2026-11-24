@@ -133,15 +133,20 @@ export async function crawl(db, targets, oc, report, stopped, fetchBody = (link,
       try { [total, its] = items(await api("lawSearch.do", { target: t, sort: "ddes", display: 100, page }, oc)); }
       catch (e) { r("skip", { msg: e.message }); break; }
       if (page === 1 && !its.length) { r("skip", { msg: "목록이 비어 있음" }); break; }  // 빈 응답을 '다 받음'으로 치지 않음
-      let pageNew = 0;
-      for (const it of its) {
-        if (stopped()) return r("stop");
-        const title = first(it, TITLE);
-        const res = await save(db, t, it, fetchBody);
-        if (res) { pageNew++; neu++; failed ||= res === "fail"; await sleep(pause); }
-        seen++;
-        r("run", { title });
-      }
+      // 한 페이지(100건)를 4건씩 동시에 받음. DB 쓰기는 한 줄씩이라 겹치지 않음
+      // ponytail: 동시 4건 고정, 법제처가 막거나 느려지면 숫자를 줄일 것
+      let pageNew = 0, next = 0;
+      const one = async () => {
+        while (next < its.length && !stopped()) {
+          const it = its[next++], title = first(it, TITLE);
+          const res = await save(db, t, it, fetchBody);
+          if (res) { pageNew++; neu++; failed ||= res === "fail"; await sleep(pause); }
+          seen++;
+          r("run", { title });
+        }
+      };
+      await Promise.all(Array.from({ length: 4 }, one));
+      if (stopped()) return r("stop");
       if (!its.length || seen >= total) {
         db.exec("insert or replace into meta values(?,?)", { bind: ["done:" + t, now().slice(0, 10)] });
         endPartial(failed);
