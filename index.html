@@ -116,16 +116,17 @@ mark { background:var(--mark); color:inherit; border-radius:4px; }
 <div class="card panel" id="panel" hidden>
   <h2>API 키</h2>
   <input id="oc" type="text" autocomplete="off" placeholder="법제처 OPEN API 인증키 (OC)" aria-label="API 키">
-  <div class="muted">이 폰에만 저장됩니다.</div>
+  <div class="muted">이 기기에만 저장됩니다.</div>
 
   <h2>DB 파일 등록 (처음 한 번)</h2>
-  <div class="muted">PC 화면의 '폰용 DB 파일 받기'로 만든 파일을 고르세요. 지금 폰의 DB는 이 파일로 바뀝니다.</div>
+  <div class="muted">PC 수집기 화면의 'DB 파일 받기'로 만든 파일을 고르세요. 지금 저장된 DB는 이 파일로 바뀝니다.</div>
   <input id="file" type="file" aria-label="DB 파일 고르기" style="margin-top:8px; max-width:100%">
 
   <h2>받을 종류 <span class="muted">— 켤 때마다 새로 바뀐 것만 받아옵니다</span></h2>
   <div id="targets"></div>
   <div class="muted" id="space" style="margin-top:8px"></div>
   <div class="muted" id="insthint" style="margin-top:4px">앱으로 설치: 크롬 오른쪽 위 ⋮ → '앱 설치' (또는 '홈 화면에 추가')</div>
+  <div class="muted" style="margin-top:12px"><a href="#" id="wipe" role="button">저장된 DB 비우고 처음부터</a> — API 키·받을 종류 설정은 남습니다.</div>
 </div>
 
 <div id="home"></div>
@@ -153,7 +154,7 @@ function paintTheme() {
   document.querySelector('meta[name="theme-color"]').content = isDark() ? "#1c1b19" : "#f7f3ea";
 }
 $("theme").onclick = () => { const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t; store.set("theme", t); paintTheme(); };
-matchMedia("(prefers-color-scheme: dark)").onchange = paintTheme;  // 직접 안 골랐으면 폰 설정 바뀔 때 따라감
+matchMedia("(prefers-color-scheme: dark)").onchange = paintTheme;  // 직접 안 골랐으면 기기 설정 바뀔 때 따라감
 paintTheme();
 
 // DB 일꾼과 주고받기: call("search", "소방") → Promise
@@ -190,7 +191,7 @@ function paintCard() {
   if (running) return;
   if (empty && !Object.keys(prog).length) {  // 빈 DB: '처음 받기 안 끝남'과 구분
     $("ptitle").textContent = "아직 받은 자료가 없어요";
-    $("psum").textContent = "⚙에서 PC로 만든 DB 파일을 등록하거나, 버튼을 눌러 폰에서 직접 받으세요.";
+    $("psum").textContent = "⚙에서 PC로 만든 DB 파일을 등록하거나, 버튼을 눌러 여기서 직접 받으세요.";
     return;
   }
   $("ptitle").textContent = first ? "처음 받기가 아직 안 끝났어요"
@@ -276,14 +277,14 @@ async function refresh() {
   $("targets").innerHTML = Object.entries(LABEL).map(([t, name]) =>
     `<label><input type="checkbox" value="${t}"${chosen.includes(t) ? " checked" : ""}>${name}<small>${num(counts[t])}건</small></label>`).join("");
   $("home").innerHTML = !n ? `<div class="card"><h2>DB가 비어 있습니다</h2>
-      <div class="muted">⚙에서 API 키를 넣고, PC에서 만든 DB 파일을 등록하거나 '지금 업데이트'로 폰에서 직접 받으세요.</div></div>`
+      <div class="muted">⚙에서 API 키를 넣고, PC에서 만든 DB 파일을 등록하거나 위 '받기 시작'으로 여기서 직접 받으세요.</div></div>`
     : `<div class="card"><h2>저장된 자료 ${num(n)}건</h2><div class="chips">` +
       st.counts.map(([t, c]) => `<span class="chip">${esc(LABEL[t] || t)} ${num(c)}</span>`).join("") + `</div>` +
       (st.changes.length ? `<h2>최근 개정</h2>` + st.changes.slice(0, 10).map(c =>
         `<div class="chg">${esc(c[2])} <span class="muted">${esc(ymd(c[4]))} → ${esc(ymd(c[5]))} · ${esc(c[3])}</span></div>`).join("") : "") +
       `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 여러 단어는 모두 들어간 것만 찾습니다.</div></div>`;
   const est = await navigator.storage?.estimate?.();
-  if (est) $("space").textContent = `폰 저장 공간 사용: ${(est.usage / 1e6).toFixed(0)}MB`;
+  if (est) $("space").textContent = `이 기기 저장 공간 사용: ${(est.usage / 1e6).toFixed(0)}MB`;
   if (!running) paintCard();
   return n;
 }
@@ -303,6 +304,15 @@ async function update(auto = false) {
   call("update", checked(), oc).catch(e => { $("ubtn").disabled = false; lock?.release(); lock = null; alert(e); });
 }
 
+$("wipe").onclick = async e => {
+  e.preventDefault();
+  if (running) return alert("업데이트 중에는 비울 수 없습니다. 중지한 뒤에 해 주세요.");
+  const n = st.counts.reduce((a, c) => a + c[1], 0);
+  if (!confirm(`저장된 자료 ${num(n)}건을 모두 지우고 처음부터 받을까요? 되돌릴 수 없습니다.`)) return;
+  try { await call("wipe"); store.set("last", ""); prog = {}; $("prows").innerHTML = ""; clearSearch(); await refresh(); }
+  catch (err) { alert("비우지 못했습니다: " + err); }
+};
+
 // 앱 설치: 크롬이 '설치 가능'이라고 알려 주면 위에 안내 카드 (이미 설치했으면 안 뜸)
 let installEvt = null;
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("inst").hidden = false; });
@@ -314,7 +324,7 @@ $("file").onchange = async () => {
   const f = $("file").files[0];
   if (!f) return;
   if (running) { $("file").value = ""; return alert("업데이트 중에는 등록할 수 없습니다. 중지하거나 끝난 뒤에 해 주세요."); }
-  if (!confirm(`'${f.name}' (${(f.size / 1e6).toFixed(0)}MB) 로 폰의 DB를 바꿀까요? 지금 폰에 있는 자료는 이 파일 내용으로 바뀝니다.`)) return ($("file").value = "");
+  if (!confirm(`'${f.name}' (${(f.size / 1e6).toFixed(0)}MB) 로 저장된 DB를 바꿀까요? 지금 있는 자료는 이 파일 내용으로 바뀝니다.`)) return ($("file").value = "");
   navigator.storage?.persist?.();
   $("ubtn").disabled = true; prog = {}; $("prows").innerHTML = "";
   $("ptitle").textContent = "DB 파일 등록 중"; $("psum").textContent = "";
@@ -330,7 +340,7 @@ $("file").onchange = async () => {
 let words = [], rows = [], shown = 0, latest = 0, lastQ = "";
 $("sf").onsubmit = async e => {
   e.preventDefault();
-  $("q").blur();  // 폰 키보드 내리기
+  $("q").blur();  // 화면 키보드 내리기
   const q = $("q").value.trim(), my = ++latest;
   if (!q) return clearSearch();
   words = q.split(/\s+/).filter(Boolean);

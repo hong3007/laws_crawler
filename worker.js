@@ -55,7 +55,7 @@ const ops = {
     if (running) throw new Error("업데이트 중에는 등록할 수 없습니다.");
     // 라이브러리는 기존 DB를 먼저 비운 뒤 파일을 검사함 → 잘못된 파일이면 폰 DB가 날아가므로 미리 확인
     const head = new TextDecoder().decode(await file.slice(0, 16).arrayBuffer());
-    if (head !== "SQLite format 3\0" || file.size % 512) throw new Error("SQLite DB 파일이 아니거나 덜 받아진 파일입니다. 폰 DB는 그대로입니다.");
+    if (head !== "SQLite format 3\0" || file.size % 512) throw new Error("SQLite DB 파일이 아니거나 덜 받아진 파일입니다. 저장된 DB는 그대로입니다.");
     running = true;  // 등록하는 동안 업데이트 막기
     db.close();
     let off = 0;
@@ -68,6 +68,15 @@ const ops = {
         return b;
       });
     } finally { open(); running = false; }
+    return ops.stats();
+  },
+  wipe() {  // 저장된 DB 비우고 처음부터. 받을 종류 설정은 남김 (API 키·테마는 화면 쪽 저장소라 그대로)
+    if (running) throw new Error("업데이트 중에는 비울 수 없습니다. 중지한 뒤에 해 주세요.");
+    const keep = db.selectValue("select value from meta where key='targets'");
+    db.close();
+    pool.unlink(FILE);
+    open();
+    if (keep) ops.setTargets(JSON.parse(keep));
     return ops.stats();
   },
   async update(targets, oc) {  // 같은 버튼 다시 누르면 중지
