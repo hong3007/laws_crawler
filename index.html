@@ -162,7 +162,10 @@ const worker = new Worker("worker.js", { type: "module" });
 let seq = 0;
 const pending = {};
 worker.onmessage = ({ data: m }) => {
-  if (m.id) { pending[m.id][m.error ? 1 : 0](m.error ?? m.result); delete pending[m.id]; }
+  if (m.id) {  // 'is not a function' = 화면은 새 버전, 일꾼은 예전 버전 (새 버전으로 바뀌는 중)
+    const err = m.error && /is not a function/.test(m.error) ? "앱이 새 버전으로 바뀌는 중입니다. 앱(탭)을 완전히 닫았다가 다시 열어 주세요." : m.error;
+    pending[m.id][err ? 1 : 0](err ?? m.result); delete pending[m.id];
+  }
   else if (paused) return;  // 멈춘 창은 화면이 바뀌어 진행 표시할 곳이 없음
   else if (m.event === "start") progStart(m.targets);
   else if (m.event === "progress") progUpdate(m.p);
