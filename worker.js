@@ -39,6 +39,8 @@ const ops = {
       counts: db.selectArrays("select target, count(*) from docs group by target order by 2 desc"),
       changes: db.selectArrays("select at, target, title, kind, old_date, new_date from changes order by at desc limit 30"),
       targets: JSON.parse(db.selectValue("select value from meta where key='targets'") || "null"),
+      // done:<종류> = 끝까지 다 받은 적 있음, partial:<종류> = 지난번에 중간에 끊김 → 화면이 자동 업데이트 여부를 정함
+      meta: Object.fromEntries(db.selectArrays("select key, value from meta where key like 'done:%' or key like 'partial:%'")),
       running,
     };
   },

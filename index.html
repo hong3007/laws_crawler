@@ -182,17 +182,23 @@ const call = (op, ...args) => new Promise((ok, no) => { pending[++seq] = [ok, no
 let prog = {}, lock = null, running = false, quiet = false;
 const hm = ms => { const d = new Date(ms); return `${d.getMonth() + 1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const lastRun = () => { try { return JSON.parse(store.get("last")) || {}; } catch { return {}; } };
+// 체크한 종류를 모두 끝까지 받았고 지난번에 끊기지 않았나 (아니면 '처음 받기' 중 → 자동으로는 시작 안 함)
+const allDone = () => checked().every(t => st.meta?.["done:" + t] && !st.meta?.["partial:" + t]);
 function paintCard() {
-  const last = lastRun();
-  $("ubtn").textContent = running ? "중지" : last.stopped ? "다시 시작" : "지금 업데이트";
+  const last = lastRun(), first = st.meta && !allDone();
+  $("ubtn").textContent = running ? "중지" : first ? "이어서 받기" : last.stopped ? "다시 시작" : "지금 업데이트";
   if (running) return;
-  $("ptitle").textContent = !last.at ? "업데이트" : last.stopped ? `중지됨 (${hm(last.at)})` : `마지막 업데이트 ${hm(last.at)}`;
+  $("ptitle").textContent = first ? "처음 받기가 아직 안 끝났어요"
+    : !last.at ? "업데이트" : last.stopped ? `중지됨 (${last.at ? hm(last.at) : ""})` : `마지막 업데이트 ${hm(last.at)}`;
   if (!Object.keys(prog).length)
-    $("psum").textContent = last.stopped ? "'다시 시작'을 누르면 받던 곳부터 이어서 받습니다." : !last.at ? "버튼을 누르면 새로 바뀐 법령을 받아옵니다." : "";
+    $("psum").textContent = first ? "자동으로는 받지 않습니다. 버튼을 누르면 받던 곳부터 이어서 받아요. (PC에서 다 받아 DB 파일로 넣어도 됩니다)"
+      : last.stopped ? "'다시 시작'을 누르면 받던 곳부터 이어서 받습니다." : !last.at ? "버튼을 누르면 새로 바뀐 법령을 받아옵니다." : "";
 }
 $("ubtn").onclick = () => {
-  if (running) { $("ubtn").disabled = true; call("update").catch(() => {}); }  // 진행 중에 다시 부르면 중지
-  else update();
+  if (running) {  // 진행 중에 다시 부르면 중지. '중지함'은 누르는 순간 저장 (바로 나가도 다음에 자동 시작 안 하게)
+    store.set("last", JSON.stringify({ ...lastRun(), stopped: true }));
+    $("ubtn").disabled = true; call("update").catch(() => {});
+  } else update();
 };
 function progStart(targets) {
   running = true; $("ubtn").disabled = false;
@@ -273,12 +279,13 @@ async function refresh() {
       `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 여러 단어는 모두 들어간 것만 찾습니다.</div></div>`;
   const est = await navigator.storage?.estimate?.();
   if (est) $("space").textContent = `폰 저장 공간 사용: ${(est.usage / 1e6).toFixed(0)}MB`;
+  if (!running) paintCard();
   return n;
 }
 
 $("oc").value = store.get("oc");
 $("oc").onchange = () => store.set("oc", $("oc").value.trim());
-$("targets").onchange = () => call("setTargets", checked()).catch(() => {});
+$("targets").onchange = () => { call("setTargets", checked()).catch(() => {}); if (!running) paintCard(); };
 
 async function update(auto = false) {
   quiet = auto;
@@ -306,12 +313,12 @@ $("file").onchange = async () => {
   navigator.storage?.persist?.();
   $("ubtn").disabled = true; prog = {}; $("prows").innerHTML = "";
   $("ptitle").textContent = "DB 파일 등록 중"; $("psum").textContent = "";
-  try { await call("importFile", f); $("ptitle").textContent = "DB 파일 등록 끝"; $("pnow").textContent = ""; store.set("last", ""); }
-  catch (e) { $("ptitle").textContent = "등록 실패"; $("pnow").textContent = String(e); }
-  $("ubtn").disabled = false; $("file").value = "";
-  $("psum").textContent = "새 DB로 바꿨습니다. '지금 업데이트'를 누르면 그 뒤로 바뀐 것만 받아옵니다.";
-  await refresh().catch(() => {});
-  $("ubtn").textContent = "지금 업데이트";
+  let msg;
+  try { await call("importFile", f); store.set("last", ""); msg = ["DB 파일 등록 끝", "새 DB로 바꿨습니다."]; }
+  catch (e) { msg = ["등록 실패", String(e)]; }
+  $("ubtn").disabled = false; $("file").value = ""; $("pnow").textContent = "";
+  await refresh().catch(() => {});  // 버튼 글자는 여기서 상태에 맞게 (처음 받기 중이면 '이어서 받기')
+  $("ptitle").textContent = msg[0]; $("psum").textContent = msg[1];
 };
 
 // ── 검색: 검색(Enter)을 눌렀을 때만. 결과는 30건씩, 아래로 내리면 이어서 ──
@@ -374,7 +381,8 @@ $("meta").onclick = async e => {
 paintCard();
 const n = await refresh().catch(e => { $("home").innerHTML = `<div class="card">DB를 열지 못했습니다: ${esc(e)}</div>`; return -1; });
 if (n === 0 || !store.get("oc")) openPanel();
-else if (n > 0 && navigator.onLine && !lastRun().stopped && Date.now() - (lastRun().at || 0) > 12 * 3600e3) update(true);
+// 자동은 '다 받은 뒤의 짧은 최신 확인'만: 처음 받기 중이거나 중지했으면 시작 안 함
+else if (n > 0 && navigator.onLine && allDone() && !lastRun().stopped && Date.now() - (lastRun().at || 0) > 12 * 3600e3) update(true);
 </script>
 </body>
 </html>
