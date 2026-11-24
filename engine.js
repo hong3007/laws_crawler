@@ -51,7 +51,7 @@ export async function api(page, params, oc) {
   const url = `https://www.law.go.kr/DRF/${page}?` + new URLSearchParams({ ...params, OC: oc, type: "JSON" });
   for (let i = 0; ; i++) {
     let raw;
-    try { raw = await (await fetch(url)).text(); }
+    try { raw = await (await fetch(url, { signal: AbortSignal.timeout(30000) })).text(); }  // 30초 넘으면 포기·재시도
     catch (e) { if (i === 2) throw new Error("인터넷 연결 확인: " + e.message); await sleep(3000 * (i + 1)); continue; }
     try { return JSON.parse(raw); }
     catch { // 보통 '미신청된 목록' 안내 HTML
@@ -63,17 +63,20 @@ export async function api(page, params, oc) {
 export async function bodyOf(link, oc) {
   const q = Object.fromEntries(new URL(link, "https://www.law.go.kr").searchParams);
   const root = Object.values(await api("lawService.do", q, oc))[0];
-  return root && typeof root === "object" ? text(root).join("\n") : NO_BODY;
+  return (root && typeof root === "object" && !Array.isArray(root) ? text(root).join("\n") : "") || NO_BODY;
 }
 
 // 1건 저장. 이미 본문까지 있으면 false. 같은 법령의 옛 버전은 changes에 기록하고 지움.
+// 현행만 저장: 같은 ID로 시행예정('연혁') 버전이 섞여 오는데, 두면 현행과 서로 지움. 시행일이 되면 현행으로 와서 개정 기록.
 export async function save(db, target, it, fetchBody) {
+  const status = first(it, ["현행연혁구분", "현행연혁코드"]);
+  if (status && status !== "현행") return false;
   const serial = ends(it, "일련번호");
   const link = ends(it, "상세링크").replace(/OC=[^&]*&?/, "");
   const row = db.selectArray("select d.rowid, f.body from docs d join fts f on f.rowid=d.rowid where target=? and serial=?", [target, serial]);
   if (row && row[1]) return false;
-  let body = "";
-  try { body = await fetchBody(link); } catch (e) { console.warn("본문 실패", serial, e); }  // 빈 본문 → 다음에 다시
+  let body = "";  // 저장하면 true, 본문 받기 실패면 "fail"(빈 본문으로 저장 → 다음에 다시)
+  try { body = await fetchBody(link); } catch (e) { console.warn("본문 실패", serial, e); }
   const title = first(it, TITLE) || serial, date = first(it, DATE).replace(/\D/g, "").slice(0, 8);
   const kind = [...new Set(KIND.map(k => str(it[k])).filter(Boolean))].join(" ");
   if (row) db.exec("update fts set body=? where rowid=?", { bind: [body, row[0]] });
@@ -90,47 +93,60 @@ export async function save(db, target, it, fetchBody) {
       db.exec("insert into fts(rowid, title, body) values(last_insert_rowid(),?,?)", { bind: [title, body] });
     });
   }
-  return true;
+  return body ? true : "fail";
 }
 
-// 최신순으로 훑기. 끝까지 다 받은 적 있는 종류는 새 것 없는 페이지에서 멈춤. 2000건 이하는 매번 끝까지.
-// report({t, state, seen, total, neu, title, msg}) — state: run 진행 / done 끝까지 받음 / uptodate 최신 / skip 건너뜀 / stop 중지
-export async function crawl(db, targets, oc, report, stopped, fetchBody = link => bodyOf(link, oc)) {
-  for (const t of targets) {
-    const done = db.selectValue("select value from meta where key=?", ["done:" + t]);
-    let page = 1, seen = 0, neu = 0, total = 0;
-    const r = (state, extra) => report({ t, state, seen, total, neu, ...extra });
+// 최신순으로 훑기. 끝까지 다 받은 적 있고 지난번이 중간에 끊기지 않았으면(partial 없음) 새 것 없는 페이지에서 멈춤.
+// 끊겼으면 다음엔 끝까지 훑어 빠진 구간을 채움. 2000건 이하는 매번 끝까지. (law.py crawl 과 같은 규칙)
+// report({t, state, seen, total, neu, full, title, msg}) — state: run 진행 / done 끝까지 받음 / uptodate 최신 / skip 건너뜀 / stop 중지
+//   full = 끝까지 훑는 중 (남은 시간 표시는 이때만 의미 있음)
+export async function crawl(db, targets, oc, report, stopped, fetchBody = link => bodyOf(link, oc), pause = 150) {
+  const meta = k => db.selectValue("select value from meta where key=?", [k]);
+  const endPartial = failed => { if (!failed) db.exec("delete from meta where key=?", { bind: ["partial:" + t] }); };
+  let t;
+  for (t of targets) {
+    const quick = !!meta("done:" + t) && !meta("partial:" + t);
+    db.exec("insert or replace into meta values(?, '1')", { bind: ["partial:" + t] });
+    let page = 1, seen = 0, neu = 0, total = 0, failed = false;  // 본문 실패 있으면 partial 남겨 다음에 다시
+    const r = (state, extra) => report({ t, state, seen, total, neu, full: !quick, ...extra });
     r("run", { title: "목록 확인 중" });
     while (true) {
       let its;
       try { [total, its] = items(await api("lawSearch.do", { target: t, sort: "ddes", display: 100, page }, oc)); }
       catch (e) { r("skip", { msg: e.message }); break; }
+      if (page === 1 && !its.length) { r("skip", { msg: "목록이 비어 있음" }); break; }  // 빈 응답을 '다 받음'으로 치지 않음
       let pageNew = 0;
       for (const it of its) {
         if (stopped()) return r("stop");
         const title = first(it, TITLE);
-        if (await save(db, t, it, fetchBody)) { pageNew++; neu++; await sleep(150); }
+        const res = await save(db, t, it, fetchBody);
+        if (res) { pageNew++; neu++; failed ||= res === "fail"; await sleep(pause); }
         seen++;
         r("run", { title });
       }
       if (!its.length || seen >= total) {
         db.exec("insert or replace into meta values(?,?)", { bind: ["done:" + t, now().slice(0, 10)] });
+        endPartial(failed);
         r("done");
         break;
       }
-      if (done && pageNew === 0 && total > 2000) { r("uptodate"); break; }
+      if (quick && pageNew === 0 && total > 2000) {
+        endPartial(failed);
+        r("uptodate");
+        break;
+      }
       page++;
     }
   }
 }
 
 export function search(db, q, limit = 0) {
-  const words = q.split(/\s+/).filter(Boolean);
-  const where = words.map(() => "(f.title like ? or f.body like ?)").join(" and ") || "1";
+  const words = q.split(/\s+/).filter(Boolean).map(w => w.replace(/[\\%_]/g, "\\$&"));  // % _ 는 글자 그대로 찾게
+  const where = words.map(() => "(f.title like ? escape '\\' or f.body like ? escape '\\')").join(" and ") || "1";
   const args = words.flatMap(w => [`%${w}%`, `%${w}%`]);
   return db.selectArrays(
     `select d.rowid, d.target, d.title, d.date, d.kind, d.org, f.body from docs d join fts f on f.rowid=d.rowid
-     where ${where} order by (f.title like ?) desc, d.date desc` + (limit ? ` limit ${limit | 0}` : ""),
+     where ${where} order by (f.title like ? escape '\\') desc, d.date desc` + (limit ? ` limit ${limit | 0}` : ""),
     [...args, words.length ? `%${words[0]}%` : ""]);
 }
 
@@ -140,7 +156,7 @@ export function snippet(body, word, n = 40) {
 }
 
 export function csv(rows) {  // 엑셀에서 한글 안 깨지게 BOM. LLM 프롬프트용으로 본문 전체
-  const cell = v => /[",\n\r]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const cell = v => { v = String(v ?? ""); return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   const lines = [["종류", "제목", "날짜", "구분", "기관", "본문"], ...rows.map(r => [LABEL[r[1]] || r[1], ...r.slice(2)])];
   return "﻿" + lines.map(l => l.map(cell).join(",")).join("\r\n");
 }

@@ -8,6 +8,6 @@ self.onactivate = e => e.waitUntil(self.clients.claim());
 self.onfetch = e => {
   if (new URL(e.request.url).origin !== location.origin || e.request.method !== "GET") return;
   e.respondWith(fetch(e.request)
-    .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
+    .then(r => { if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: true })));
 };

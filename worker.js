@@ -51,6 +51,10 @@ const ops = {
   csv(q) { return E.csv(E.search(db, q)); },
   async importFile(file) {  // PC에서 만든 DB 파일을 8MB씩 나눠 저장 (큰 파일도 메모리 안 터지게)
     if (running) throw new Error("업데이트 중에는 등록할 수 없습니다.");
+    // 라이브러리는 기존 DB를 먼저 비운 뒤 파일을 검사함 → 잘못된 파일이면 폰 DB가 날아가므로 미리 확인
+    const head = new TextDecoder().decode(await file.slice(0, 16).arrayBuffer());
+    if (head !== "SQLite format 3\0" || file.size % 512) throw new Error("SQLite DB 파일이 아니거나 덜 받아진 파일입니다. 폰 DB는 그대로입니다.");
+    running = true;  // 등록하는 동안 업데이트 막기
     db.close();
     let off = 0;
     try {
@@ -61,7 +65,7 @@ const ops = {
         postMessage({ event: "log", text: `등록 중 ${Math.round(off / file.size * 100)}%` });
         return b;
       });
-    } finally { open(); }
+    } finally { open(); running = false; }
     return ops.stats();
   },
   async update(targets, oc) {  // 같은 버튼 다시 누르면 중지
