@@ -44,6 +44,7 @@ const ops = {
       // done:<종류> = 끝까지 다 받은 적 있음, partial:<종류> = 지난번에 중간에 끊김 → 화면이 자동 업데이트 여부를 정함
       meta: Object.fromEntries(db.selectArrays("select key, value from meta where key like 'done:%' or key like 'partial:%'")),
       oldFormat: oldFormat(),
+      size: db.selectValue("pragma page_count") * db.selectValue("pragma page_size"),  // 실제 DB 크기 (브라우저 집계는 부풀려짐)
       running,
     };
   },
@@ -77,6 +78,10 @@ const ops = {
       });
     } finally { open(); running = false; }
     return ops.stats();
+  },
+  exportDb() {  // 저장된 DB를 파일로 꺼냄 (백업·다른 기기 등록용). 받는 중엔 쓰는 도중이라 막음
+    if (running) throw new Error("업데이트 중에는 저장할 수 없습니다. 중지한 뒤에 해 주세요.");
+    return new Blob([pool.exportFile(FILE)], { type: "application/vnd.sqlite3" });
   },
   wipe() {  // 저장된 DB 비우고 처음부터. 받을 종류 설정은 남김 (API 키·테마는 화면 쪽 저장소라 그대로)
     if (running) throw new Error("업데이트 중에는 비울 수 없습니다. 중지한 뒤에 해 주세요.");

@@ -119,14 +119,15 @@ mark { background:var(--mark); color:inherit; border-radius:4px; }
   <div class="muted">이 기기에만 저장됩니다.</div>
 
   <h2>DB 파일 등록 (처음 한 번)</h2>
-  <div class="muted">PC 수집기 화면의 'DB 파일 받기'로 만든 파일을 고르세요. 지금 저장된 DB는 이 파일로 바뀝니다.</div>
+  <div class="muted">PC 수집기의 'DB 파일 받기'나 아래 'DB 파일로 저장'으로 만든 파일을 고르세요. 지금 저장된 DB는 이 파일로 바뀝니다.</div>
   <input id="file" type="file" aria-label="DB 파일 고르기" style="margin-top:8px; max-width:100%">
 
   <h2>받을 종류 <span class="muted">— 켤 때마다 새로 바뀐 것만 받아옵니다</span></h2>
   <div id="targets"></div>
   <div class="muted" id="space" style="margin-top:8px"></div>
   <div class="muted" id="insthint" style="margin-top:4px">앱으로 설치: 크롬 오른쪽 위 ⋮ → '앱 설치' (또는 '홈 화면에 추가')</div>
-  <div class="muted" style="margin-top:12px"><a href="#" id="wipe" role="button">저장된 DB 비우고 처음부터</a> — API 키·받을 종류 설정은 남습니다.</div>
+  <div class="muted" style="margin-top:12px"><a href="#" id="save" role="button">DB 파일로 저장</a> — 백업, 또는 다른 기기의 'DB 파일 등록'에 넣을 파일입니다.</div>
+  <div class="muted" style="margin-top:8px"><a href="#" id="wipe" role="button">저장된 DB 비우고 처음부터</a> — API 키·받을 종류 설정은 남습니다.</div>
 </div>
 
 <div id="home"></div>
@@ -289,8 +290,7 @@ async function refresh() {
       (st.changes.length ? `<h2>최근 개정</h2>` + st.changes.slice(0, 10).map(c =>
         `<div class="chg">${esc(c[2])} <span class="muted">${esc(ymd(c[4]))} → ${esc(ymd(c[5]))} · ${esc(c[3])}</span></div>`).join("") : "") +
       `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 여러 단어는 모두 들어간 것만 찾습니다.</div></div>`;
-  const est = await navigator.storage?.estimate?.();
-  if (est) $("space").textContent = `이 기기 저장 공간 사용: ${(est.usage / 1e6).toFixed(0)}MB`;
+  $("space").textContent = `저장된 DB 크기: ${(st.size / 1e6).toFixed(0)}MB`;
   if (!running) paintCard();
   return n;
 }
@@ -307,9 +307,25 @@ async function update(auto = false) {
   if (!checked().length) { openPanel(); return alert("받을 종류를 하나 이상 체크해 주세요."); }
   if (st.oldFormat) { if (!auto) { openPanel(); alert("저장 방식이 바뀌었어요. ⚙ 맨 아래 '저장된 DB 비우고 처음부터'를 먼저 해 주세요."); } return; }
   $("ubtn").disabled = true;  // 시작 신호(start)가 올 때까지 두 번 눌림 방지
+  navigator.storage?.persist?.();  // 브라우저가 공간 부족할 때 이 사이트 자료를 지우지 않게 요청
   if (!auto) try { lock ??= await navigator.wakeLock?.request("screen"); } catch {}  // 직접 받을 땐 화면 안 꺼지게
   call("update", checked(), oc).catch(e => { $("ubtn").disabled = false; lock?.release(); lock = null; alert(e); });
 }
+
+// DB 파일로 저장: PC 엣지·크롬은 저장 위치를 고르는 창, 안 되는 브라우저(폰)는 '다운로드' 폴더로
+$("save").onclick = async e => {
+  e.preventDefault();
+  if (running) return alert("업데이트 중에는 저장할 수 없습니다. 중지한 뒤에 해 주세요.");
+  const name = `law-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}.db`;
+  let fh;
+  if (window.showSaveFilePicker) try { fh = await showSaveFilePicker({ suggestedName: name }); } catch { return; }  // 취소
+  try {
+    const blob = await call("exportDb");
+    if (fh) { const w = await fh.createWritable(); await w.write(blob); await w.close(); }
+    else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); }
+    alert(`저장했습니다 (${(blob.size / 1e6).toFixed(0)}MB).`);
+  } catch (err) { alert("저장하지 못했습니다: " + err); }
+};
 
 $("wipe").onclick = async e => {
   e.preventDefault();
