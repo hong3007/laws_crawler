@@ -50,7 +50,7 @@ const ops = {
   },
   setTargets(list) { db.exec("insert or replace into meta values('targets', ?)", { bind: [JSON.stringify(list)] }); },
   async search(q, target, sort) {  // 끝의 r[1] = 종류 코드 (화면의 종류 거르기용)
-    const w = q.split(/\s+/).filter(Boolean)[0] || "";
+    const w = E.parse(q).groups[0]?.[0] || "";
     return (await E.search(db, q, 300, target, sort)).map(r => [r[0], E.LABEL[r[1]] || r[1], r[2], r[3], r[4], r[5], E.snippet(r[6], w), r[1]]);
   },
   async doc(id, oc) {  // ③ 요약만 저장한 종류(판례·자치법규)는 열 때 전문을 온라인으로, 안 되면 저장된 요약

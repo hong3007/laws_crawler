@@ -167,11 +167,27 @@ export async function crawl(db, targets, oc, report, stopped, fetchBody = (link,
 // 검색: 3글자 이상 단어는 세 글자 조각(trigram)이 모두 든 문서를 색인으로 후보로 고르고,
 // 본문을 풀어 단어가 정말 있는지 확인. 제목 일치 먼저, 그다음 최신순 (sort='date'면 최신순만). target 주면 그 종류만. limit 채우면 멈춤.
 // ponytail: 모든 단어가 2글자 이하면 색인을 못 써서 전체를 풀어 봄 (흔한 단어는 금방 limit, 드문 2글자는 느림)
+// 검색어 풀기: 띄어쓰기 = 그리고, | 또는 OR = 또는, -단어 = 빼기, "따옴표" = 띄어쓰기까지 그대로 (law.py parse 와 같음)
+export function parse(q) {
+  const groups = [[]], neg = [];
+  for (const [, quoted, word] of q.replace(/\|/g, " | ").matchAll(/"([^"]*)"|(\S+)/g)) {
+    if (quoted !== undefined) { if (quoted.trim()) groups.at(-1).push(quoted); continue; }
+    if (word === "|" || word === "OR") groups.push([]);
+    else if (word.length > 1 && word.startsWith("-")) neg.push(word.slice(1));
+    else groups.at(-1).push(word);
+  }
+  return { groups: groups.filter(g => g.length), neg };
+}
+
 export async function search(db, q, limit = 0, target = "", sort = "") {
-  const words = q.split(/\s+/).filter(Boolean), low = words.map(w => w.toLowerCase());
-  const tris = [...new Set(words.flatMap(w => { const c = [...w]; return c.slice(2).map((_, i) => c.slice(i, i + 3).join("")); }))];
-  const match = tris.map(t => `"${t.replace(/"/g, '""')}"`).join(" AND ");
-  const tw = words.length ? `%${words[0].replace(/[\\%_]/g, "\\$&")}%` : "";
+  const { groups, neg } = parse(q);
+  const low = groups.map(g => g.map(w => w.toLowerCase())), lowNeg = neg.map(w => w.toLowerCase());
+  const tri = w => { const c = [...w]; return c.slice(2).map((_, i) => c.slice(i, i + 3).join("")); };
+  // 묶음마다 세 글자 조각 AND, 묶음끼리 OR. 조각 없는(2글자만) 묶음이 하나라도 있으면 색인 없이 전체
+  const parts = groups.map(g => [...new Set(g.flatMap(tri))].map(t => `"${t.replace(/"/g, '""')}"`).join(" AND "));
+  const match = parts.length && parts.every(Boolean) ? parts.map(p => `(${p})`).join(" OR ") : "";
+  const w0 = groups[0]?.[0];
+  const tw = w0 ? `%${w0.replace(/[\\%_]/g, "\\$&")}%` : "";
   const where = [match && "d.rowid in (select rowid from fts where fts match ?)", target && "d.target = ?"].filter(Boolean);
   const cand = db.selectArrays(
     `select d.rowid, d.target, d.title, d.date, d.kind, d.org from docs d
@@ -182,7 +198,10 @@ export async function search(db, q, limit = 0, target = "", sort = "") {
   for (const r of cand) {
     const body = await bodyText(db, r[0]);
     const hay = (r[2] + "\n" + body).toLowerCase();
-    if (low.every(w => hay.includes(w))) { out.push([...r, body]); if (limit && out.length >= limit) break; }
+    if ((!low.length || low.some(g => g.every(w => hay.includes(w)))) && !lowNeg.some(w => hay.includes(w))) {
+      out.push([...r, body]);
+      if (limit && out.length >= limit) break;
+    }
   }
   return out;
 }

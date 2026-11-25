@@ -139,7 +139,7 @@ mark { background:var(--mark); color:inherit; border-radius:4px; }
 </main>
 
 <script type="module">
-import { LABEL } from "./engine.js";
+import { LABEL, parse } from "./engine.js";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const ymd = d => d && d.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}` : (d || "");
@@ -291,7 +291,7 @@ async function refresh() {
       st.counts.map(([t, c]) => `<span class="chip">${esc(LABEL[t] || t)} ${num(c)}</span>`).join("") + `</div>` +
       (st.changes.length ? `<h2>최근 개정</h2>` + st.changes.slice(0, 10).map(c =>
         `<div class="chg">${esc(c[2])} <span class="muted">${esc(ymd(c[4]))} → ${esc(ymd(c[5]))} · ${esc(c[3])}</span></div>`).join("") : "") +
-      `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 여러 단어는 모두 들어간 것만 찾습니다.</div></div>`;
+      `<div class="muted" style="margin-top:10px">위 검색창에 단어를 넣고 검색(Enter)을 누르세요. 띄어쓰기 = 모두 포함 · <b>|</b> = 또는 · <b>-단어</b> = 빼기 · <b>"따옴표"</b> = 붙은 그대로 (예: 유도등 아파트 | 피난구 -보험)</div></div>`;
   $("space").textContent = `저장된 DB 크기: ${(st.size / 1e6).toFixed(0)}MB`;
   if (!running) paintCard();
   return n;
@@ -373,7 +373,7 @@ $("sf").onsubmit = e => {
 async function run(q, fresh) {
   const my = ++latest;
   if (!q) return clearSearch();
-  words = q.split(/\s+/).filter(Boolean);
+  words = parse(q).groups.flat();  // 강조할 단어 (빼기 단어·기호 제외)
   rows = []; shown = 0;  // 기다리는 동안 이전 결과가 이어 붙지 않게
   $("home").hidden = true; $("results").innerHTML = ""; $("meta").textContent = "찾는 중…";
   let found;
