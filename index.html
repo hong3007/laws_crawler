@@ -77,6 +77,8 @@ a { color:var(--accent); }
 /* 홈 */
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { background:var(--soft); border-radius:999px; padding:3px 10px; font-size:13px; }
+a.chip { color:inherit; text-decoration:none; }
+a.chip.on { background:var(--accent); color:var(--bg); }
 .chg { font-size:14px; padding:5px 0; border-top:1px solid var(--line); }
 h2 + .chg { border-top:0; }
 
@@ -360,26 +362,41 @@ $("file").onchange = async () => {
 };
 
 // ── 검색: 검색(Enter)을 눌렀을 때만. 결과는 30건씩, 아래로 내리면 이어서 ──
-let words = [], rows = [], shown = 0, latest = 0, lastQ = "";
-$("sf").onsubmit = async e => {
+// 종류 거르기·정렬은 결과 줄에만 (따로 필터 줄 없음): ft = 고른 종류 코드, srt = "date"면 최신순, kinds = 결과에 나온 종류들
+let words = [], rows = [], shown = 0, latest = 0, lastQ = "", ft = "", srt = "", kinds = [];
+$("sf").onsubmit = e => {
   e.preventDefault();
   $("q").blur();  // 화면 키보드 내리기
-  const q = $("q").value.trim(), my = ++latest;
+  ft = "";  // 새 검색은 모든 종류에서 (정렬은 유지)
+  run($("q").value.trim(), true);
+};
+async function run(q, fresh) {
+  const my = ++latest;
   if (!q) return clearSearch();
   words = q.split(/\s+/).filter(Boolean);
   rows = []; shown = 0;  // 기다리는 동안 이전 결과가 이어 붙지 않게
   $("home").hidden = true; $("results").innerHTML = ""; $("meta").textContent = "찾는 중…";
   let found;
-  try { found = await call("search", q); }
+  try { found = await call("search", q, ft, srt); }
   catch (err) { if (my === latest) $("meta").textContent = "검색 실패: " + err; return; }
   if (my !== latest) return;
   rows = found; lastQ = q;
+  if (fresh) {  // 종류별 건수는 거르기 전 결과로 (300건 넘으면 앞 300건 기준이라 숫자는 안 보임)
+    const m = new Map();
+    for (const r of rows) m.set(r[7], [r[7], r[1], (m.get(r[7])?.[2] || 0) + 1]);
+    kinds = [...m.values()].sort((a, b) => b[2] - a[2]);
+    if (rows.length >= 300) kinds.forEach(k => k[2] = "");
+  }
+  const chips = kinds.length > 1 ? `<div class="chips" style="margin-top:8px">` + [["", "전체", ""], ...kinds].map(([t, label, c]) =>
+    `<a href="#" class="chip${t === ft ? " on" : ""}" data-t="${esc(t)}">${esc(label)}${c ? " " + c : ""}</a>`).join("") + `</div>` : "";
   $("meta").innerHTML = (rows.length >= 300 ? "300건 이상 (앞 300건)" : `${rows.length}건`) +
-    (rows.length ? ` · <a href="#" id="csv">CSV 내려받기</a>` : " — 다른 단어로 찾아보세요");
+    (rows.length ? ` · <a href="#" data-sort>${srt ? "최신순" : "관련순"} ⇅</a> · <a href="#" id="csv">CSV 내려받기</a>`
+                 : " — 다른 단어로 찾아보세요") + chips;
   more();
-};
+}
 function clearSearch() {
   latest++;  // 늦게 도착한 검색 결과는 버림
+  ft = ""; kinds = [];
   rows = []; shown = 0; $("results").innerHTML = ""; $("meta").textContent = ""; $("home").hidden = false;
 }
 $("q").addEventListener("input", () => { if (!$("q").value) clearSearch(); });  // ✕로 지우면 처음 화면
@@ -404,12 +421,16 @@ $("results").addEventListener("toggle", async e => {
   try { d.querySelector(".body").innerHTML = hl(await call("doc", +d.dataset.id, store.get("oc"))); }
   catch (err) { delete d.dataset.loaded; d.querySelector(".body").textContent = "본문을 불러오지 못했습니다: " + err; }
 }, true);
-$("meta").onclick = async e => {
-  if (e.target.id !== "csv") return;
+$("meta").onclick = async e => {  // 화면에 보이는 결과의 검색어로 (입력칸을 고쳤어도)
+  const el = e.target.closest("a");
+  if (!el) return;
   e.preventDefault();
+  if (el.dataset.t !== undefined) { ft = el.dataset.t; return run(lastQ); }  // 종류 칩: 그 종류만 (전체 = 해제)
+  if (el.hasAttribute("data-sort")) { srt = srt ? "" : "date"; return run(lastQ); }  // 관련순 ↔ 최신순
+  if (el.id !== "csv") return;
   try {
-    const a = Object.assign(document.createElement("a"), {  // 화면에 보이는 결과의 검색어로 (입력칸을 고쳤어도)
-      href: URL.createObjectURL(new Blob([await call("csv", lastQ)], { type: "text/csv" })), download: `${lastQ}.csv` });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([await call("csv", lastQ, ft, srt)], { type: "text/csv" })), download: `${lastQ}.csv` });
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   } catch (err) { alert("CSV를 만들지 못했습니다: " + err); }

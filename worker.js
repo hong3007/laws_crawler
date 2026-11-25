@@ -49,9 +49,9 @@ const ops = {
     };
   },
   setTargets(list) { db.exec("insert or replace into meta values('targets', ?)", { bind: [JSON.stringify(list)] }); },
-  async search(q) {
+  async search(q, target, sort) {  // 끝의 r[1] = 종류 코드 (화면의 종류 거르기용)
     const w = q.split(/\s+/).filter(Boolean)[0] || "";
-    return (await E.search(db, q, 300)).map(r => [r[0], E.LABEL[r[1]] || r[1], r[2], r[3], r[4], r[5], E.snippet(r[6], w)]);
+    return (await E.search(db, q, 300, target, sort)).map(r => [r[0], E.LABEL[r[1]] || r[1], r[2], r[3], r[4], r[5], E.snippet(r[6], w), r[1]]);
   },
   async doc(id, oc) {  // ③ 요약만 저장한 종류(판례·자치법규)는 열 때 전문을 온라인으로, 안 되면 저장된 요약
     const [target, link] = db.selectArray("select target, link from docs where rowid=?", [id]) || [];
@@ -59,7 +59,7 @@ const ops = {
     const body = await E.bodyText(db, id);
     return E.SUMMARY[target] ? body + "\n\n(요약만 저장됨 — 인터넷이 연결되면 전문을 보여 줍니다)" : body;
   },
-  async csv(q) { return E.csv(await E.search(db, q)); },
+  async csv(q, target, sort) { return E.csv(await E.search(db, q, 0, target, sort)); },
   async importFile(file) {  // PC에서 만든 DB 파일을 8MB씩 나눠 저장 (큰 파일도 메모리 안 터지게)
     if (running) throw new Error("업데이트 중에는 등록할 수 없습니다.");
     // 라이브러리는 기존 DB를 먼저 비운 뒤 파일을 검사함 → 잘못된 파일이면 폰 DB가 날아가므로 미리 확인
