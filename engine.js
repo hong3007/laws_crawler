@@ -23,6 +23,7 @@ export const SUMMARY = { prec: ["판례내용"], ordin: ["별표"] };
 export const SCHEMA = `
 create table if not exists docs(target, serial, gid, title, date, kind, org, link, meta, fetched,
                                 primary key(target, serial));
+create index if not exists docs_gid on docs(target, gid);  -- 저장할 때 옛 버전 찾기 (없으면 매번 전체를 훑어 점점 느려짐)
 create table if not exists body(rowid integer primary key, z blob);
 create virtual table if not exists fts using fts5(title, body, tokenize='trigram', detail='none', content='', contentless_delete=1);
 create table if not exists changes(at, target, title, kind, old_date, new_date, old_serial, new_serial);
