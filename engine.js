@@ -133,8 +133,8 @@ export async function crawl(db, targets, oc, report, stopped, fetchBody = (link,
       try { [total, its] = items(await api("lawSearch.do", { target: t, sort: "ddes", display: 100, page }, oc)); }
       catch (e) { r("skip", { msg: e.message }); break; }
       if (page === 1 && !its.length) { r("skip", { msg: "목록이 비어 있음" }); break; }  // 빈 응답을 '다 받음'으로 치지 않음
-      // 한 페이지(100건)를 4건씩 동시에 받음. DB 쓰기는 한 줄씩이라 겹치지 않음
-      // ponytail: 동시 4건 고정, 법제처가 막거나 느려지면 숫자를 줄일 것
+      // 한 페이지(100건)를 16건씩 동시에 받음. DB 쓰기는 한 줄씩이라 겹치지 않음
+      // ponytail: 동시 16건 고정 (2026-11-25 실측: 16까지 오류 0·응답 시간 그대로), 법제처가 막거나 느려지면 줄일 것
       let pageNew = 0, next = 0;
       const one = async () => {
         while (next < its.length && !stopped()) {
@@ -145,7 +145,7 @@ export async function crawl(db, targets, oc, report, stopped, fetchBody = (link,
           r("run", { title });
         }
       };
-      await Promise.all(Array.from({ length: 4 }, one));
+      await Promise.all(Array.from({ length: 16 }, one));
       if (stopped()) return r("stop");
       if (!its.length || seen >= total) {
         db.exec("insert or replace into meta values(?,?)", { bind: ["done:" + t, now().slice(0, 10)] });
