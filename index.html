@@ -90,7 +90,8 @@ h2 + .chg { border-top:0; }
 .res b { font-weight:700; }
 .tag { display:inline-block; font-size:12px; background:var(--soft); color:var(--accent); border-radius:999px; padding:1px 8px; margin-right:6px; }
 .snip { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
-.body { white-space:pre-wrap; font-size:15px; margin-top:10px; padding:12px; background:var(--bg); border-radius:12px; overflow-wrap:anywhere; }
+.body { white-space:pre-wrap; font-size:15px; margin-top:10px; padding:12px; background:var(--bg); border-radius:12px; overflow-wrap:anywhere;
+  position:relative; max-height:70vh; overflow-y:auto; }  /* 긴 법령은 상자 안에서 스크롤, 열면 첫 검색어 위치로 */
 mark { background:var(--mark); color:inherit; border-radius:4px; }
 #more { height:1px; }
 </style>
@@ -367,6 +368,7 @@ let words = [], rows = [], shown = 0, latest = 0, lastQ = "", ft = "", srt = "",
 $("sf").onsubmit = e => {
   e.preventDefault();
   $("q").blur();  // 화면 키보드 내리기
+  if (!history.state) history.pushState(1, "");  // 폰 '뒤로'가 앱을 닫지 않고 처음 화면으로
   ft = "";  // 새 검색은 모든 종류에서 (정렬은 유지)
   run($("q").value.trim(), true);
 };
@@ -399,7 +401,8 @@ function clearSearch() {
   ft = ""; kinds = [];
   rows = []; shown = 0; $("results").innerHTML = ""; $("meta").textContent = ""; $("home").hidden = false;
 }
-$("q").addEventListener("input", () => { if (!$("q").value) clearSearch(); });  // ✕로 지우면 처음 화면
+$("q").addEventListener("input", () => { if (!$("q").value) history.state ? history.back() : clearSearch(); });  // ✕로 지우면 처음 화면
+addEventListener("popstate", () => { $("q").value = ""; clearSearch(); });
 function more() {
   const next = rows.slice(shown, shown + 30);
   shown += next.length;
@@ -411,14 +414,18 @@ function more() {
 new IntersectionObserver(es => { if (es[0].isIntersecting && shown < rows.length) more(); }, { rootMargin: "400px" }).observe($("more"));
 function hl(s) {  // 원문에서 검색어를 찾아 조각마다 esc (esc된 글자 안의 &amp; 같은 걸 깨지 않게)
   if (!words.length) return esc(s);
-  const re = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+  const re = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
   return String(s ?? "").split(re).map((part, i) => i % 2 ? `<mark>${esc(part)}</mark>` : esc(part)).join("");
 }
 $("results").addEventListener("toggle", async e => {
   const d = e.target;
   if (!d.open || d.dataset.loaded) return;
   d.dataset.loaded = 1;
-  try { d.querySelector(".body").innerHTML = hl(await call("doc", +d.dataset.id, store.get("oc"))); }
+  try {
+    const b = d.querySelector(".body");
+    b.innerHTML = hl(await call("doc", +d.dataset.id, store.get("oc")));
+    b.scrollTop = (b.querySelector("mark")?.offsetTop ?? 40) - 40;  // 긴 법령도 검색어가 처음 나오는 곳부터
+  }
   catch (err) { delete d.dataset.loaded; d.querySelector(".body").textContent = "본문을 불러오지 못했습니다: " + err; }
 }, true);
 $("meta").onclick = async e => {  // 화면에 보이는 결과의 검색어로 (입력칸을 고쳤어도)

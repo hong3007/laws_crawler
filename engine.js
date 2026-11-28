@@ -170,8 +170,10 @@ export async function crawl(db, targets, oc, report, stopped, fetchBody = (link,
 // 검색어 풀기: 띄어쓰기 = 그리고, | 또는 OR = 또는, -단어 = 빼기, "따옴표" = 띄어쓰기까지 그대로 (law.py parse 와 같음)
 export function parse(q) {
   const groups = [[]], neg = [];
-  for (const [, quoted, word] of q.replace(/\|/g, " | ").matchAll(/"([^"]*)"|(\S+)/g)) {
+  for (const [, quoted, raw] of q.replace(/\|/g, " | ").matchAll(/"([^"]*)"|(\S+)/g)) {
     if (quoted !== undefined) { if (quoted.trim()) groups.at(-1).push(quoted); continue; }
+    const word = raw.replace(/"/g, "");  // 짝 안 맞는 따옴표는 무시
+    if (!word) continue;
     if (word === "|" || word === "OR") groups.push([]);
     else if (word.length > 1 && word.startsWith("-")) neg.push(word.slice(1));
     else groups.at(-1).push(word);
@@ -194,11 +196,16 @@ export async function search(db, q, limit = 0, target = "", sort = "") {
      ${where.length ? "where " + where.join(" and ") : ""}
      order by ${sort === "date" ? "" : "(d.title like ? escape '\\') desc, "}d.date desc`,
     [...(match ? [match] : []), ...(target ? [target] : []), ...(sort === "date" ? [] : [tw])]);
-  const out = [];
+  // 중복은 한 번만: 해석례는 같은 해석이 질의기관마다 번호만 달리해 옴(본문은 질의기관 한 줄만 다름) → 제목·날짜가 같으면 같은 해석.
+  // 판례 등은 '손해배상(기)'처럼 제목이 겹치는 다른 사건이 많아 본문까지 같을 때만
+  const out = [], seen = new Set();
   for (const r of cand) {
     const body = await bodyText(db, r[0]);
     const hay = (r[2] + "\n" + body).toLowerCase();
     if ((!low.length || low.some(g => g.every(w => hay.includes(w)))) && !lowNeg.some(w => hay.includes(w))) {
+      const key = [r[1], r[2], r[3], /expc$/i.test(r[1]) ? "" : body].join("\n");
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push([...r, body]);
       if (limit && out.length >= limit) break;
     }
@@ -206,9 +213,11 @@ export async function search(db, q, limit = 0, target = "", sort = "") {
   return out;
 }
 
-export function snippet(body, word, n = 40) {
-  const i = word ? body.indexOf(word) : -1;
-  return (i >= 0 ? body.slice(Math.max(0, i - n), i + n) : body.slice(0, n * 2)).replace(/\n/g, " ");
+// 미리보기: 검색어 중 본문에 가장 먼저 나오는 곳 (대소문자 무시, '또는'의 뒤 단어로 찾은 문서도 그 자리)
+export function snippet(body, words, n = 40) {
+  const low = body.toLowerCase();
+  const i = Math.min(...words.map(w => low.indexOf(w.toLowerCase())).filter(i => i >= 0));
+  return (isFinite(i) ? body.slice(Math.max(0, i - n), i + n) : body.slice(0, n * 2)).replace(/\n/g, " ");
 }
 
 export function csv(rows) {  // 엑셀에서 한글 안 깨지게 BOM. LLM 프롬프트용으로 본문 전체
